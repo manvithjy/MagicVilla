@@ -1,6 +1,8 @@
 ﻿using MagicVilla_VillaAPI.Data;
+using MagicVilla_VillaAPI.Logging;
 using MagicVilla_VillaAPI.Models;
 using MagicVilla_VillaAPI.Models.DTO;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MagicVilla_VillaAPI.Controllers
@@ -10,13 +12,24 @@ namespace MagicVilla_VillaAPI.Controllers
     [Route("api/[controller]")]
     public class VillaController : ControllerBase
     {
+        //private readonly ILogger<VillaController> _logger;
+
+        //public VillaController( ILogger<VillaController> logger)
+        //{
+        //    _logger = logger;
+        //}
+
+        private readonly Ilogging _logger;
+        public VillaController(Ilogging logger)
+        {
+            _logger = logger;
+        }
 
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(VillaDTO))]
         public ActionResult<IEnumerable<VillaDTO>> GetVillas()
         {
-
-
+            _logger.Log("getting all villas", "info"); // Added the 'type' argument as required by the Ilogging.Log method
             return Ok(VillaStore.VillaList);
         }
 
@@ -27,9 +40,9 @@ namespace MagicVilla_VillaAPI.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(VillaDTO))]
         public ActionResult GetVillaById(int id)
         {
-
             if (id == 0)
             {
+                _logger.Log("Invalid villa id: " + id, "error"); // Added the 'type' argument as required by the Ilogging.Log method
                 return BadRequest();
             }
 
@@ -40,7 +53,6 @@ namespace MagicVilla_VillaAPI.Controllers
                 return NotFound();
             }
             return Ok(villa);
-
         }
 
          
@@ -100,6 +112,56 @@ namespace MagicVilla_VillaAPI.Controllers
 
 
         }
+
+
+        [HttpPut("{id:int}", Name = "UpdateVilla")]
+        [ProducesResponseType(StatusCodes.Status204NoContent, Type = typeof(VillaDTO))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(VillaDTO))]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(VillaDTO))]
+
+        public IActionResult UpdateVilla(int id, VillaDTO villaDto)
+        {
+
+            if (villaDto == null || id != villaDto.Id)
+            {
+                return BadRequest();
+            }
+            var villa = VillaStore.VillaList.FirstOrDefault(u => u.Id == id);
+            villa.Name = villaDto.Name;
+            villa.Occupancy = villaDto.Occupancy;
+            villa.Sqft = villaDto.Sqft;
+            return NoContent();
+
+
+        }
+
+
+        [HttpPatch("{id:int}", Name = "UpdatePartialVilla")]
+        [ProducesResponseType(StatusCodes.Status204NoContent, Type = typeof(VillaDTO))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(VillaDTO))]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(VillaDTO))]
+
+        public IActionResult UpdatePartialVilla(int id, JsonPatchDocument<VillaDTO> patchDto)
+        {
+            if (patchDto == null || id == 0)
+            {
+                return BadRequest();
+            }
+            var villa = VillaStore.VillaList.FirstOrDefault(u => u.Id == id);
+            if(villa == null)
+            {
+                return BadRequest(); 
+            }
+            patchDto.ApplyTo(villa, ModelState);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            return NoContent();
+
+        }
+
+
 
     }
 }
